@@ -1,9 +1,6 @@
 // alfred-ghostty · gt
 // 枚举 Ghostty 全部窗口/Tab/分屏，输出 Alfred Script Filter JSON。
 // 过滤交给 Alfred 完成（match 字段 = 标题 + tab标题 + cwd + 进程名 + tty）。
-// 改名模式：普通 item 的 autocomplete 把输入变成 "改名 ttysNNN "，继续输入别名
-// 回车 -> action.js(action=rename)。用 autocomplete 而非链式 Script Filter，
-// 是因为 Alfred 动作时会触发全部出线，链式会让跳转/改名互相误触。
 // 需要 Ghostty >= 1.4（AppleScript 字典）。
 
 ObjC.import('Foundation');
@@ -119,13 +116,6 @@ function iconForProc(proc) {
   return { path: "icon.png" };
 }
 
-let QUERY = "";
-
-function run(argv) {
-  QUERY = ((argv && argv[0]) || "").replace(/^\s+|\s+$/g, "");
-  return runMain();
-}
-
 function runMain() {
   const items = [];
   const icon = { path: "icon.png" };
@@ -167,62 +157,6 @@ function runMain() {
   // （进程退了枚举里还在），ps 里查不到 pid 的直接跳过
   const havePs = Object.keys(procs).length > 0;
 
-  // ---- 改名模式：query = "改名 [ttysNNN] [别名]" ----
-  const mode = QUERY.match(/^(?:改名|rename)\s*([\s\S]*)$/);
-  if (mode) {
-    const rest = mode[1].trim();
-    const m = rest.match(/^(\S+)(?:\s+([\s\S]*))?$/);
-    const handle = m ? m[1] : "";
-    const alias = m && m[2] !== undefined ? m[2].trim() : "";
-    let hit = null;
-    if (handle) {
-      const live = surfaces.filter(function (s) {
-        if (havePs) {
-          if (s.pid <= 0) return false;
-          const p = procs[String(s.pid)];
-          if (!p || p.dead) return false;
-        }
-        return true;
-      });
-      for (let i = 0; i < live.length; i++) {
-        const tty = live[i].tty || "";
-        if (tty === handle || (tty.length && tty.indexOf(handle, tty.length - handle.length) >= 0)) {
-          hit = live[i];
-          break;
-        }
-      }
-    }
-    if (!hit) {
-      items.push({
-        title: handle
-          ? T("找不到 tty 为 " + handle + " 的分屏（可能已关闭）", "No surface with tty " + handle + " (it may have closed)")
-          : T("Tab 选择要改名的分屏", "Press Tab on a surface in gt to rename it"),
-        subtitle: T("在 gt 列表对某个分屏按 Tab 进入改名", "Autocomplete fills this input from a gt result"),
-        valid: false,
-        // match 取原样 query，保证 Alfred 过滤时该 item 永远存活
-        match: QUERY,
-        icon: icon
-      });
-    } else {
-      items.push({
-        title: alias ? T("设置别名为「" + alias + "」", "Set alias to '" + alias + "'")
-                     : T("清除别名（恢复原标题）", "Clear alias (restore original title)"),
-        subtitle: T("目标：", "Target: ") + (hit.title || hit.cwd) + T(" · 回车确认", " · press ↩ to confirm"),
-        arg: alias,
-        match: QUERY,
-        icon: icon,
-        variables: {
-          action: "rename",
-          window_id: hit.windowId,
-          tab_id: hit.tabId,
-          terminal_id: hit.terminalId,
-          rename_alias: alias
-        }
-      });
-    }
-    return JSON.stringify({ items: items });
-  }
-
   surfaces.forEach(function (s) {
     // ps 成功输出的前提下判活：pid<=0（字典对已死表面返回 0）、
     // pid 查不到（已被回收）、stat 含 Z（僵尸）都视为死亡，直接跳过
@@ -252,18 +186,15 @@ function runMain() {
         window_id: s.windowId,
         tab_id: s.tabId,
         terminal_id: s.terminalId,
-        kind: "terminal",
         action: "focus",
-        cwd: s.cwd,
-        current_title: title
+        cwd: s.cwd
       },
       mods: {
         ctrl: {
           variables: { action: "copy" },
           subtitle: T("⌃回车 复制完整路径：", "⌃↩ copy full path: ") + (tilde(s.cwd) || s.cwd)
         }
-      },
-      autocomplete: s.tty ? (LANG_ZH ? "改名 " : "rename ") + s.tty.replace("/dev/", "") + " " : ""
+      }
     });
   });
 
@@ -279,3 +210,4 @@ function runMain() {
   return JSON.stringify({ items: items });
 }
 
+runMain();

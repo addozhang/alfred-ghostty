@@ -36,7 +36,7 @@
 	<key>createdby</key>
 	<string>addo</string>
 	<key>description</key>
-	<string>Search &amp; jump between Ghostty tabs and splits, open folders with `go`. Match by alias, title, working directory, running process or tty.</string>
+	<string>Search &amp; jump between Ghostty tabs and splits, open folders with `go`. Match by title, working directory, running process or tty.</string>
 	<key>disabled</key>
 	<false/>
 	<key>name</key>
@@ -75,7 +75,7 @@
 				<key>scriptfile</key>
 				<string></string>
 				<key>subtext</key>
-				<string>Search &amp; jump: alias / title / path / process / tty</string>
+				<string>Search &amp; jump: title / path / process / tty</string>
 				<key>title</key>
 				<string>Ghostty Tabs &amp; Splits</string>
 				<key>type</key>
@@ -165,15 +165,11 @@
 	<string>Ghostty — Tabs &amp; Splits
 
 gt — search &amp; jump across ALL Ghostty tabs and splits
-  · Match dimensions: alias, terminal title, tab title, full working directory,
+  · Match dimensions: terminal title, tab title, full working directory,
     running foreground process (via pid), tty
   · ↩ : jump (bring window to front, select tab, focus the surface)
   · ⌃↩ : copy the surface's full working directory
   · ⌘C on a result: copy path (Alfred native)
-  · ⇥ Tab: rename mode — input becomes "rename ttysNNN ", keep typing the alias
-    and press ↩; empty alias + ↩ restores the original title
-  · Aliases are written to Ghostty's `name override` (session-scoped) and are
-    searchable immediately; renaming the focused surface updates the tab title
 
 go — open a folder in a new tab / window
   · No argument: opens Finder's current folder (falls back to home if no Finder window)
@@ -213,7 +209,7 @@ First run: allow Alfred to control Ghostty (and Finder for go's Finder fallback)
 		</dict>
 	</dict>
 	<key>version</key>
-	<string>1.0.0</string>
+	<string>1.0.1</string>
 	<key>webaddress</key>
 	<string></string>
 </dict>

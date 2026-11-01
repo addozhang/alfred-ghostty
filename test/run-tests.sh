@@ -4,7 +4,7 @@
 # 三层：
 #   1. info.plist 契约（连线、脚本文件存在、相对路径）—— 无需 Ghostty
 #   2. Script Filter JSON 输出契约（Alfred JSON 规范、icon 存在、变量类型）
-#   3. 动作集成（focus/copy/rename/open/open_window，真连 Ghostty）—— 会短暂创建
+#   3. 动作集成（focus/copy/open/open_window，真连 Ghostty）—— 会短暂创建
 #      分屏/Tab/窗口并在退出时自动清理（含失败清理）
 # 用法：make test  或  test/run-tests.sh
 
@@ -142,13 +142,6 @@ JSON.stringify(hit || {win: "", tab: "", term: ""})')
     fail "准备工作：open 创建测试 Tab"
   else
     pass "open 新 Tab 打开指定目录"
-    AUTOC=$(jxa src/list-surfaces.js 2>/dev/null | TESTDIR="$TESTDIR" python3 -c "
-import json, sys, os
-d = json.load(sys.stdin)
-acs = [i.get('autocomplete','') for i in d['items']]
-ok = any(a.startswith('改名 ttys') or a.startswith('rename ttys') for a in acs)
-print('yes' if ok else 'no')")
-    [ "$AUTOC" = "yes" ] && pass "普通 item 携带改名 autocomplete" || fail "普通 item 携带改名 autocomplete"
 
     # 3.1 聚焦切换：在测试 Tab 里建分屏 → focus 过去 → 切回（不关分屏，退出时随 Tab 一起清理）
     osascript -e "tell application \"Ghostty\"" \
@@ -211,73 +204,6 @@ out')
     else
       skip "copy（剪贴板已被占用，跳过）"
     fi
-
-    # 3.3 改名模式：枚举的 tty -> 改名 item -> action.js rename -> 恢复
-    TTY0=$(TERMID="$TERMID" osascript -l JavaScript -e '
-ObjC.import("stdlib");
-const g = Application("Ghostty");
-const tid = ObjC.unwrap($.getenv("TERMID"));
-let out = "";
-g.windows().forEach(w => w.tabs().forEach(t => t.terminals().forEach(s => {
-  if (String(s.id()) === tid) out = String(s.tty());
-})));
-out')
-    ALIAS="GT-TEST-别名$RANDOM"
-    REN=$(jxa src/list-surfaces.js "改名 $TTY0 $ALIAS" 2>&1)
-    if printf '%s' "$REN" | python3 -c '
-import json, sys, os
-d = json.load(sys.stdin)
-it = d["items"][0]
-ok = ("设置别名" in it["title"]) or ("Set alias" in it["title"])
-assert ok, "title 不对: %r" % it["title"]
-assert it["arg"] is not None and it["variables"]["action"] == "rename", "variables/arg 不对"
-assert it["variables"]["rename_alias"], "别名未入 variables"
-assert it["match"], "改名 item 缺 self-match"
-'; then
-      pass "改名模式 item（tty 定位 + rename 变量）"
-    else
-      fail "改名模式 item（tty 定位 + rename 变量）" "$REN"
-    fi
-    action=rename window_id="$TABWIN" tab_id="$TABID" terminal_id="$TERMID" rename_alias="$ALIAS" jxa src/action.js >/dev/null
-    sleep 0.4
-    GOT=$(TERMID="$TERMID" osascript -l JavaScript -e '
-ObjC.import("stdlib");
-const g = Application("Ghostty");
-const tid = ObjC.unwrap($.getenv("TERMID"));
-let out = "";
-g.windows().forEach(w => w.tabs().forEach(t => t.terminals().forEach(s => {
-  if (String(s.id()) === tid) out = String(s.name());
-})));
-out')
-    case "$GOT" in *"$ALIAS"*) pass "action rename 设置别名后 name override 生效" ;; *) fail "action rename 设置别名后 name override 生效" "实际 name: ${GOT}" ;; esac
-    action=rename window_id="$TABWIN" tab_id="$TABID" terminal_id="$TERMID" rename_alias="" jxa src/action.js >/dev/null
-    sleep 0.4
-    GOT=$(TERMID="$TERMID" osascript -l JavaScript -e '
-ObjC.import("stdlib");
-const g = Application("Ghostty");
-const tid = ObjC.unwrap($.getenv("TERMID"));
-let out = "";
-g.windows().forEach(w => w.tabs().forEach(t => t.terminals().forEach(s => {
-  if (String(s.id()) === tid) out = String(s.name());
-})));
-out')
-    case "$GOT" in *"$ALIAS"*) fail "action rename 清除别名后恢复原标题" "仍含别名: ${GOT}" ;; *) pass "action rename 清除别名后恢复原标题" ;; esac
-    # 改名模式找不到 tty 时的兜底 item
-    REN_EN=$(jxa src/list-surfaces.js "rename $TTY0 EN-alias-$RANDOM" 2>&1)
-    printf '%s' "$REN_EN" | python3 -c '
-import json, sys
-d = json.load(sys.stdin)
-it = d["items"][0]
-assert it["variables"]["action"] == "rename" and it["variables"]["rename_alias"], "英文前缀解析失败: %r" % it
-' && pass "改名模式接受英文前缀 rename" || fail "改名模式接受英文前缀 rename" "$REN_EN"
-    REN2=$(jxa src/list-surfaces.js "改名 ttys999 xyz" 2>&1)
-    printf '%s' "$REN2" | python3 -c '
-import json, sys
-d = json.load(sys.stdin)
-it = d["items"][0]
-ok = it["valid"] is False and (("找不到" in it["title"]) or ("No surface" in it["title"]))
-assert ok, "兜底项不对: %r" % it["title"]
-' && pass "改名模式对不存在 tty 的兜底" || fail "改名模式对不存在 tty 的兜底" "$REN2"
 
     # 3.4 open_window 新窗口打开目录
     W0=$(osascript -l JavaScript -e 'Application("Ghostty").windows().length')

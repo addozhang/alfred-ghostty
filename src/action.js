@@ -1,10 +1,9 @@
 // alfred-ghostty · 动作分发
 // 环境变量（由 Alfred 从上游 item 变量注入）：
-//   action=focus|copy|rename|open|open_window
-//   window_id tab_id terminal_id cwd open_path rename_alias
+//   action=focus|copy|open|open_window
+//   window_id tab_id terminal_id cwd open_path
 // focus       : 窗口置前 -> 选中 Tab -> 聚焦分屏（id 失效时逐级回退）
 // copy        : cwd 写入剪贴板并弹系统通知
-// rename      : 给 terminal 写 name override（rename_alias，空串即清除）
 // open        : path 在新 Tab 打开（Ghostty 未运行则新窗口）
 // open_window : path 在新窗口打开
 // 说明：Ghostty 的 surface configuration record 只认原始四字符代码键
@@ -72,18 +71,6 @@ function notify(msg) {
   } catch (e) {}
 }
 
-function doRename(alias) {
-  const g = Application("Ghostty");
-  const w = findById(g.windows(), env("window_id"));
-  if (!w) return notify(T("未找到目标窗口（可能已关闭）", "Target window not found (it may have closed)"));
-  const t = findById(w.tabs(), env("tab_id"));
-  if (!t) return notify(T("未找到目标 Tab（可能已关闭）", "Target tab not found (it may have closed)"));
-  const s = findById(t.terminals(), env("terminal_id"));
-  if (!s) return notify(T("未找到目标分屏（可能已关闭）", "Target surface not found (it may have closed)"));
-  s.nameOverride = alias;
-  notify(alias ? T("别名已设置：", "Alias set: ") + alias : T("别名已清除", "Alias cleared"));
-}
-
 function doFocus() {
   const g = Application("Ghostty");
   const w = findById(g.windows(), env("window_id"));
@@ -137,8 +124,6 @@ if (action === "copy") {
   if (cwd) doCopy(cwd);
 } else if (action === "focus") {
   doFocus();
-} else if (action === "rename") {
-  doRename(env("rename_alias"));
 } else if (action === "open" || action === "open_window") {
   const openPath = env("open_path") || env("cwd");
   if (openPath) openTarget(openPath, action === "open_window");
