@@ -1,0 +1,53 @@
+name: Release
+
+# 打 v* tag（如 v1.3.0）触发：校验版本号 -> 跑测试 -> 打包 -> 发布 GitHub Release。
+# 也支持手动触发（workflow_dispatch），手动跑时只构建测试、不发布。
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify tag matches info.plist version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PLIST_VER=$(/usr/libexec/PlistBuddy -c 'Print :version' info.plist)
+          echo "tag=$TAG plist=$PLIST_VER"
+          if [ "$TAG" != "$PLIST_VER" ]; then
+            echo "::error::Tag v$TAG does not match info.plist version $PLIST_VER — bump info.plist and re-tag."
+            exit 1
+          fi
+
+      # macOS runner 上没有 Ghostty：套件第 1/2 层正常执行，第 3 层集成测试自动跳过。
+      # 全量（含集成）测试请在本机 make test。
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make build
+
+      - name: Upload artifact (workflow_dispatch runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: alfred-ghostty-alfredworkflow
+          path: dist/alfred-ghostty.alfredworkflow
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/alfred-ghostty.alfredworkflow
+          generate_release_notes: true
