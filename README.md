@@ -4,6 +4,8 @@
 
 > Alfred workflow: search & jump across ALL [Ghostty](https://ghostty.org) tabs and splits (panes), with directory opening and path copying.
 
+![gt — search & jump Ghostty surfaces](screenshot.png)
+
 Inspired by [alfred-browser-tabs](https://github.com/epilande/alfred-browser-tabs), built on **Ghostty 1.4+'s native AppleScript dictionary** — no Accessibility permission, no external dependencies.
 
 ## Features

@@ -4,6 +4,8 @@
 
 > Alfred workflow：在 Alfred 中检索并跳转 [Ghostty](https://ghostty.org) 的全部 Tab 与分屏（splits），支持打开目录、复制路径。
 
+![gt — 检索并跳转 Ghostty 分屏](screenshot.png)
+
 灵感来自 [alfred-browser-tabs](https://github.com/epilande/alfred-browser-tabs)（检索浏览器 Tab），基于 **Ghostty 1.4+ 原生 AppleScript 字典**——无需辅助功能权限、无需额外依赖。
 
 ## 功能
