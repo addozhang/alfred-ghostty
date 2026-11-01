@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>bundleid</key>
+	<string>com.addo.alfred-ghostty</string>
+	<key>connections</key>
+	<dict>
+		<key>GT-FILTER</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>GT-ACTION</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>GT-GO-FILTER</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>GT-ACTION</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+	</dict>
+	<key>createdby</key>
+	<string>addo</string>
+	<key>description</key>
+	<string>Search &amp; jump between Ghostty tabs and splits, open folders with `go`. Match by alias, title, working directory, running process or tty.</string>
+	<key>disabled</key>
+	<false/>
+	<key>name</key>
+	<string>Ghostty — Tabs &amp; Splits</string>
+	<key>objects</key>
+	<array>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<true/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>2</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<false/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>1</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string>gt</string>
+				<key>queuedelaycustom</key>
+				<integer>3</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<false/>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>Enumerating Ghostty surfaces…</string>
+				<key>script</key>
+				<string>osascript -l JavaScript "src/list-surfaces.js" "$1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string>Search &amp; jump: alias / title / path / process / tty</string>
+				<key>title</key>
+				<string>Ghostty Tabs &amp; Splits</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>GT-FILTER</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>osascript -l JavaScript "src/action.js"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>GT-ACTION</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<false/>
+				<key>argumenttype</key>
+				<integer>1</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string>go</string>
+				<key>queuedelaycustom</key>
+				<integer>3</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<false/>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>Completing folder…</string>
+				<key>script</key>
+				<string>osascript -l JavaScript "src/go.js" "$1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string>No argument = Finder's folder; type a path to complete</string>
+				<key>title</key>
+				<string>Ghostty Open Folder</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<true/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>GT-GO-FILTER</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+	<key>readme</key>
+	<string>Ghostty — Tabs &amp; Splits
+
+gt — search &amp; jump across ALL Ghostty tabs and splits
+  · Match dimensions: alias, terminal title, tab title, full working directory,
+    running foreground process (via pid), tty
+  · ↩ : jump (bring window to front, select tab, focus the surface)
+  · ⌃↩ : copy the surface's full working directory
+  · ⌘C on a result: copy path (Alfred native)
+  · ⇥ Tab: rename mode — input becomes "rename ttysNNN ", keep typing the alias
+    and press ↩; empty alias + ↩ restores the original title
+  · Aliases are written to Ghostty's `name override` (session-scoped) and are
+    searchable immediately; renaming the focused surface updates the tab title
+
+go — open a folder in a new tab / window
+  · No argument: opens Finder's current folder (falls back to home if no Finder window)
+  · go ~/Workspaces/foo: directory completion, Tab drills down, ↩ opens
+  · ⌘↩ : open in a new window (cold-starts Ghostty if it is not running)
+
+UI language follows your system's preferred language (Chinese or English).
+
+Requirements: macOS, Alfred 5 + Powerpack, Ghostty &gt;= 1.4
+First run: allow Alfred to control Ghostty (and Finder for go's Finder fallback).</string>
+	<key>uidata</key>
+	<dict>
+		<key>GT-ACTION</key>
+		<dict>
+			<key>xpos</key>
+			<real>430.0</real>
+			<key>ypos</key>
+			<real>45.0</real>
+		</dict>
+		<key>GT-FILTER</key>
+		<dict>
+			<key>note</key>
+			<string>gt</string>
+			<key>xpos</key>
+			<real>60.0</real>
+			<key>ypos</key>
+			<real>45.0</real>
+		</dict>
+		<key>GT-GO-FILTER</key>
+		<dict>
+			<key>note</key>
+			<string>go</string>
+			<key>xpos</key>
+			<real>60.0</real>
+			<key>ypos</key>
+			<real>320.0</real>
+		</dict>
+	</dict>
+	<key>version</key>
+	<string>1.0.0</string>
+	<key>webaddress</key>
+	<string></string>
+</dict>
+</plist>
