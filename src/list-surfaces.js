@@ -107,6 +107,19 @@ function baseName(p) {
   return String(p).replace(/\/+$/, "").split("/").pop().replace(/^-/, "");
 }
 
+// 清理 shell 默认上报的冗余终端标题（如 "user@host:~/path"、Oh-My-Zsh 的 "..-dir" 缩写或纯路径）
+function cleanShellTitle(raw, cwd, shortCwd, dirName) {
+  let t = String(raw || "").trim();
+  if (!t) return "";
+  // 去掉开头的 "user@hostname:" 前缀
+  t = t.replace(/^[\w.-]+@[\w.-]+:\s*/, "").trim();
+  if (!t) return "";
+  // 若清理后只是当前路径、~、或 "..-xxx" 形式的缩写路径，视为无额外信息的默认标题
+  if (t === "~" || t === cwd || t === shortCwd || t === dirName) return "";
+  if (/^(?:~\/|\/|\.\.?[-/])/.test(t)) return "";
+  return t;
+}
+
 function resolveCmdName(comm, args) {
   let c = baseName(comm);
   if (WRAPPER_PROCS[c] && args) {
@@ -371,17 +384,20 @@ function runMain() {
     const proc = act.proc;
     const itemIcon = iconForProc(proc);
     const shortCwd = tilde(s.cwd);
-    const dirName = baseName(s.cwd) || shortCwd || T("终端", "terminal");
+    const isHome = Boolean(home && s.cwd === home);
+    const dirName = isHome ? "~" : (baseName(s.cwd) || shortCwd || T("终端", "terminal"));
 
-    // 识别用户自定义的 Tab 名：优先取 tab.nameOverride，其次当 tabTitle 与终端 title 不同且不是默认路径时采用
+    // 识别用户自定义的 Tab 名：只取用户显式设置的 tab.nameOverride，
+    // 或者清理掉 user@host:路径 之后仍与终端标题不同的有效自定义名称
+    const cleanedTabTitle = cleanShellTitle(s.tabTitle, s.cwd, shortCwd, dirName);
     const customTabName = (s.tabTitleOverride || "").trim() ||
-      (s.tabTitle && s.tabTitle !== s.title && s.tabTitle !== shortCwd && s.tabTitle !== s.cwd ? s.tabTitle.trim() : "");
+      (cleanedTabTitle && s.tabTitle !== s.title && !/^\u03C0\s+|^OC\s*\||^OpenCode$/.test(cleanedTabTitle) ? cleanedTabTitle : "");
     const customTermName = (s.titleOverride || "").trim();
 
     // 构造对用户友好的主标题：
     // 1. Coding Agent：显示「目录名 — agent (会话主题) [状态]」
-    // 2. 普通前台进程：显示「目录名 — 进程名」（若终端标题有额外语义则保留）
-    // 3. 空闲 Shell：显示「目录名」（或用户自定义标题）
+    // 2. 普通前台进程：显示「目录名 — 进程名」
+    // 3. 空闲 Shell：只显示「目录名」（或用户显式设置的 titleOverride）
     // 若用户手动给 Tab 起了名字，作为前缀「[Tab名] 」展示
     let mainTitle = "";
     if (act.isAgent) {
@@ -393,12 +409,7 @@ function runMain() {
     } else if (act.state === "running" && act.proc) {
       mainTitle = dirName + " — " + act.proc;
     } else {
-      const rawT = customTermName || (s.title || "").trim();
-      if (rawT && rawT !== shortCwd && rawT !== s.cwd && rawT.indexOf(dirName) < 0) {
-        mainTitle = dirName + " · " + rawT;
-      } else {
-        mainTitle = customTermName || dirName || rawT || T("终端", "terminal");
-      }
+      mainTitle = customTermName || dirName || T("终端", "terminal");
     }
 
     if (customTabName && mainTitle.indexOf(customTabName) < 0) {
