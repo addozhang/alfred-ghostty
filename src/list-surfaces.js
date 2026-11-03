@@ -108,14 +108,14 @@ function baseName(p) {
 }
 
 // 清理 shell 默认上报的冗余终端标题（如 "user@host:~/path"、Oh-My-Zsh 的 "..-dir" 缩写或纯路径）
-function cleanShellTitle(raw, cwd, shortCwd, dirName) {
+function cleanShellTitle(raw, cwd, shortCwd, dirName, homeUser) {
   let t = String(raw || "").trim();
   if (!t) return "";
-  // 去掉开头的 "user@hostname:" 前缀
-  t = t.replace(/^[\w.-]+@[\w.-]+:\s*/, "").trim();
+  // 去掉开头的 "user@hostname:" 或 "user@host name:" 前缀（兼容主机名含空格/单引号）
+  t = t.replace(/^[^@\s]+@[^:]+:\s*/, "").replace(/^[^@\s]+@[^\s]+\s+/, "").trim();
   if (!t) return "";
-  // 若清理后只是当前路径、~、或 "..-xxx" 形式的缩写路径，视为无额外信息的默认标题
-  if (t === "~" || t === cwd || t === shortCwd || t === dirName) return "";
+  // 若清理后只是当前路径、~、用户名本身、或 "..-xxx" 形式的缩写路径，视为无额外信息的默认标题
+  if (t === "~" || t === cwd || t === shortCwd || t === dirName || (homeUser && t === homeUser)) return "";
   if (/^(?:~\/|\/|\.\.?[-/])/.test(t)) return "";
   return t;
 }
@@ -362,9 +362,23 @@ function runMain() {
   }
 
   const procInfo = lookupProcs(surfaces);
-  const home = homePath();
+  const home = homePath().replace(/\/+$/, "");
+  const homeUser = baseName(home);
+  const normPath = function (p) {
+    let s = String(p || "").trim();
+    if (s.indexOf("file://") === 0) {
+      s = s.replace(/^file:\/\/[^/]*/, "");
+      try { s = decodeURIComponent(s); } catch (e) {}
+    }
+    if (s.length > 1) s = s.replace(/\/+$/, "");
+    return s;
+  };
   const tilde = function (p) {
-    return p && home && p.indexOf(home) === 0 ? "~" + p.slice(home.length) : p;
+    const np = normPath(p);
+    if (!np || !home) return np;
+    if (np === home) return "~";
+    if (np.indexOf(home + "/") === 0) return "~" + np.slice(home.length);
+    return np;
   };
   // ps 反查同时充当存活检查：Ghostty 的脚本字典偶尔会返回已死亡的分屏
   // （进程退了枚举里还在），ps 里查不到 pid/tty 的直接跳过
@@ -383,15 +397,17 @@ function runMain() {
     const act = inspectSurfaceActivity(s, procInfo);
     const proc = act.proc;
     const itemIcon = iconForProc(proc);
-    const shortCwd = tilde(s.cwd);
-    const isHome = Boolean(home && s.cwd === home);
-    const dirName = isHome ? "~" : (baseName(s.cwd) || shortCwd || T("终端", "terminal"));
+    const cleanCwd = normPath(s.cwd);
+    const shortCwd = tilde(cleanCwd);
+    const isHome = shortCwd === "~";
+    const dirName = isHome ? "~" : (baseName(cleanCwd) || shortCwd || T("终端", "terminal"));
 
     // 识别用户自定义的 Tab 名：只取用户显式设置的 tab.nameOverride，
     // 或者清理掉 user@host:路径 之后仍与终端标题不同的有效自定义名称
-    const cleanedTabTitle = cleanShellTitle(s.tabTitle, s.cwd, shortCwd, dirName);
+    const cleanedTabTitle = cleanShellTitle(s.tabTitle, cleanCwd, shortCwd, dirName, homeUser);
+    const cleanedTermTitle = cleanShellTitle(s.title, cleanCwd, shortCwd, dirName, homeUser);
     const customTabName = (s.tabTitleOverride || "").trim() ||
-      (cleanedTabTitle && s.tabTitle !== s.title && !/^\u03C0\s+|^OC\s*\||^OpenCode$/.test(cleanedTabTitle) ? cleanedTabTitle : "");
+      (cleanedTabTitle && cleanedTabTitle !== cleanedTermTitle && s.tabTitle !== s.title && !/^\u03C0\s+|^OC\s*\||^OpenCode$/.test(cleanedTabTitle) ? cleanedTabTitle : "");
     const customTermName = (s.titleOverride || "").trim();
 
     // 构造对用户友好的主标题：
@@ -429,17 +445,18 @@ function runMain() {
     if (s.isFocused) subParts.push(T("当前", "current"));
     const sub = subParts.join("  ·  ");
 
-    // match 保留完整的可搜索维度（含 Tab 名字、目录、进程名、状态词、Tab序号）
+    // match 保留完整的可搜索维度（含 Tab 名字、目录、进程名、状态词、Tab序号），
+    // 使用 shortCwd (~) 和清洗后的标题，避免把 /Users/<username> 或 user@host 放进 match 被误搜出
     const stateKeywords = act.isAgent
       ? (act.state === "working" ? "working 工作中 运行中" : act.state === "attention" ? "attention confirm 需确认" : "idle waiting 等待输入 空闲")
       : "";
     const matchTokens = [
       mainTitle,
       customTabName,
-      s.tabTitle,
-      s.title,
+      cleanedTabTitle,
+      cleanedTermTitle,
       dirName,
-      s.cwd,
+      shortCwd,
       proc,
       act.topic,
       stateKeywords,
@@ -454,18 +471,18 @@ function runMain() {
       match: matchTokens,
       arg: mainTitle,
       icon: itemIcon,
-      text: { copy: s.cwd, largetype: mainTitle + "\n" + (shortCwd || "") },
+      text: { copy: cleanCwd, largetype: mainTitle + "\n" + (shortCwd || "") },
       variables: {
         window_id: s.windowId,
         tab_id: s.tabId,
         terminal_id: s.terminalId,
         action: "focus",
-        cwd: s.cwd
+        cwd: cleanCwd
       },
       mods: {
         ctrl: {
           variables: { action: "copy" },
-          subtitle: T("⌃回车 复制完整路径：", "⌃↩ copy full path: ") + (shortCwd || s.cwd)
+          subtitle: T("⌃回车 复制完整路径：", "⌃↩ copy full path: ") + (shortCwd || cleanCwd)
         }
       }
     });
