@@ -107,17 +107,52 @@ function baseName(p) {
   return String(p).replace(/\/+$/, "").split("/").pop().replace(/^-/, "");
 }
 
-// 清理 shell 默认上报的冗余终端标题（如 "user@host:~/path"、Oh-My-Zsh 的 "..-dir" 缩写或纯路径）
-function cleanShellTitle(raw, cwd, shortCwd, dirName, homeUser) {
-  let t = String(raw || "").trim();
+// 移除字符串中夹带的 user@host 前缀或把 /Users/<homeUser> 缩写为 ~
+function stripUserNoise(str, home, homeUser) {
+  let t = String(str || "");
   if (!t) return "";
-  // 去掉开头的 "user@hostname:" 或 "user@host name:" 前缀（兼容主机名含空格/单引号）
-  t = t.replace(/^[^@\s]+@[^:]+:\s*/, "").replace(/^[^@\s]+@[^\s]+\s+/, "").trim();
+  // 去掉开头的 "user@hostname:" / "user@hostname —" / "user@hostname "
+  t = t.replace(/^[^@\s]+@[^:]+:\s*/, "").replace(/^[^@\s]+@[^\s]+\s*(?:[-—·|]\s*)?/, "");
+  if (home) {
+    t = t.split(home + "/").join("~/").split(home).join("~");
+  }
+  if (homeUser) {
+    // 去掉像 "username — zsh" 或 "username: ~" 这类默认前缀
+    const esc = homeUser.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    t = t.replace(new RegExp("^" + esc + "\\s*(?:[@:—·|-]+\\s*)+", "i"), "");
+  }
+  return t.trim();
+}
+
+// 清理 shell 默认上报的冗余终端标题（如 "user@host:~/path"、Oh-My-Zsh 的 "..-dir" 缩写或纯路径）
+function cleanShellTitle(raw, cwd, shortCwd, dirName, home, homeUser) {
+  let t = stripUserNoise(raw, home, homeUser);
+  if (!t) return "";
+  // 去掉末尾或整体常见的 "-zsh" / "zsh — 80×24" 默认后缀
+  t = t.replace(/\s*[-—·|]\s*-?(?:zsh|bash|fish|sh|login)\b.*$/i, "")
+       .replace(/^-?(?:zsh|bash|fish|sh|login)(?:\s*[-—·|]\s*\d+[x×]\d+)?$/i, "")
+       .trim();
   if (!t) return "";
   // 若清理后只是当前路径、~、用户名本身、或 "..-xxx" 形式的缩写路径，视为无额外信息的默认标题
-  if (t === "~" || t === cwd || t === shortCwd || t === dirName || (homeUser && t === homeUser)) return "";
+  if (t === "~" || t === cwd || t === shortCwd || t === dirName || (homeUser && t.toLowerCase() === homeUser.toLowerCase())) return "";
   if (/^(?:~\/|\/|\.\.?[-/])/.test(t)) return "";
   return t;
+}
+
+// 当 Ghostty 未返回 workingDirectory 时，尝试从终端标题中提取路径（如 "user@host: ~/Workspaces/foo"）
+function inferCwdFromTitle(rawTitle, rawTabTitle, home) {
+  const candidates = [rawTitle, rawTabTitle];
+  for (let i = 0; i < candidates.length; i++) {
+    const s = String(candidates[i] || "").trim();
+    const m = s.match(/(?:^|:\s*|\s+)(~(?:\/[^\s]*)?|\/[^\s]+)$/);
+    if (m) {
+      const p = m[1];
+      if (p === "~" && home) return home;
+      if (p.indexOf("~/") === 0 && home) return home + p.slice(1);
+      return p;
+    }
+  }
+  return "";
 }
 
 function resolveCmdName(comm, args) {
@@ -397,18 +432,20 @@ function runMain() {
     const act = inspectSurfaceActivity(s, procInfo);
     const proc = act.proc;
     const itemIcon = iconForProc(proc);
-    const cleanCwd = normPath(s.cwd);
+    const rawCwd = s.cwd || inferCwdFromTitle(s.title, s.tabTitle, home);
+    const cleanCwd = normPath(rawCwd);
     const shortCwd = tilde(cleanCwd);
-    const isHome = shortCwd === "~";
+    const isHome = shortCwd === "~" || (homeUser && baseName(cleanCwd).toLowerCase() === homeUser.toLowerCase() && /^\/Users\/[^/]+$/i.test(cleanCwd));
     const dirName = isHome ? "~" : (baseName(cleanCwd) || shortCwd || T("终端", "terminal"));
+    const cleanTopic = stripUserNoise(act.topic, home, homeUser);
 
     // 识别用户自定义的 Tab 名：只取用户显式设置的 tab.nameOverride，
     // 或者清理掉 user@host:路径 之后仍与终端标题不同的有效自定义名称
-    const cleanedTabTitle = cleanShellTitle(s.tabTitle, cleanCwd, shortCwd, dirName, homeUser);
-    const cleanedTermTitle = cleanShellTitle(s.title, cleanCwd, shortCwd, dirName, homeUser);
-    const customTabName = (s.tabTitleOverride || "").trim() ||
+    const cleanedTabTitle = cleanShellTitle(s.tabTitle, cleanCwd, shortCwd, dirName, home, homeUser);
+    const cleanedTermTitle = cleanShellTitle(s.title, cleanCwd, shortCwd, dirName, home, homeUser);
+    const customTabName = stripUserNoise(s.tabTitleOverride, home, homeUser) ||
       (cleanedTabTitle && cleanedTabTitle !== cleanedTermTitle && s.tabTitle !== s.title && !/^\u03C0\s+|^OC\s*\||^OpenCode$/.test(cleanedTabTitle) ? cleanedTabTitle : "");
-    const customTermName = (s.titleOverride || "").trim();
+    const customTermName = stripUserNoise(s.titleOverride, home, homeUser);
 
     // 构造对用户友好的主标题：
     // 1. Coding Agent：显示「目录名 — agent (会话主题) [状态]」
@@ -418,8 +455,8 @@ function runMain() {
     let mainTitle = "";
     if (act.isAgent) {
       let detail = act.proc;
-      if (act.topic && act.topic.toLowerCase() !== dirName.toLowerCase() && act.topic.toLowerCase() !== act.proc.toLowerCase()) {
-        detail += ": " + act.topic;
+      if (cleanTopic && cleanTopic !== "~" && cleanTopic.toLowerCase() !== dirName.toLowerCase() && cleanTopic.toLowerCase() !== act.proc.toLowerCase() && (!homeUser || cleanTopic.toLowerCase() !== homeUser.toLowerCase())) {
+        detail += ": " + cleanTopic;
       }
       mainTitle = dirName + " — " + detail + "  " + act.stateLabel;
     } else if (act.state === "running" && act.proc) {
