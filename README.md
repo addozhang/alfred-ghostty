@@ -22,11 +22,11 @@ Match dimensions (concatenated into one `match` string; Alfred fuzzy-matches it,
 
 | Dimension | Source |
 |---|---|
-| Terminal title | Ghostty's current title (incl. shell-integration titles) |
-| Tab title | title of the containing tab |
-| Working directory | full cwd (updates live as you `cd`) |
-| Running process | foreground pid resolved via `ps` (`vim`, `htop`…; idle shows `zsh`) |
-| tty | e.g. `ttys001` |
+| Project & working directory | folder name in the main title; full `cwd` in subtitle (updates live as you `cd`) |
+| Tab title / custom name | displays user-renamed tab titles (`[TabName]`) and terminal titles |
+| Coding Agent & status | detects `omp`, `opencode`, `pi`, `claude`, `codex`, etc., showing session topic and live status (`⚡ working` / `💬 idle` / `🔴 needs input`) |
+| Running process | foreground process group resolved per `tty` (`vim`, `ssh`…; hides idle `zsh` and background MCP/LSP helpers) |
+| Tab & split index | searchable via `t1` / `tab1`; subtitle cleanly shows `Tab N` and `Pane M/N` only when needed |
 
 | Key | Action |
 |---|---|
@@ -34,7 +34,9 @@ Match dimensions (concatenated into one `match` string; Alfred fuzzy-matches it,
 | `⌃↩` | Copy the surface's full working directory |
 | `⌘C` on a result | Copy path (Alfred native) |
 
-Item format: `W1 · T1 · pane2 · ~/path/to/cwd · zsh · ttys001`, the focused surface of each tab is marked `current`.
+Item example:
+- Title: `[AgentDev] deepseek-harness — opencode: Optimize Alfred workflow  💬 idle`
+- Subtitle: `~/Workspaces/github_w/deepseek-harness  ·  Tab 2 · Pane 1/2  ·  current`
 
 ### `go` — open a folder
 

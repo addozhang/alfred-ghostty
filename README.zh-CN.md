@@ -22,11 +22,11 @@ gt <关键词>
 
 | 维度 | 来源 |
 |---|---|
-| 终端标题 | Ghostty 当前 title（含 shell 集成标题） |
-| Tab 标题 | 所在 Tab 的标题 |
-| 工作目录 | 完整 cwd（终端里 `cd` 后实时更新） |
-| 正在运行的进程 | 前台进程 PID 反查（如 `vim`、`htop`；空闲时为 `zsh`） |
-| tty | 如 `ttys001` |
+| 项目目录与工作路径 | 目录名作为主标题展示，副标题展示完整 `cwd`（终端里 `cd` 后实时更新） |
+| Tab 标题 / 自定义名称 | 支持展示手动重命名的 Tab 标题（`[Tab名]`）与终端标题 |
+| Coding Agent 与状态 | 自动识别 `omp`、`opencode`、`pi`、`claude`、`codex` 等，展示会话主题与实时状态（`⚡ 工作中` / `💬 等待输入` / `🔴 需确认`） |
+| 正在运行的进程 | 按 `tty` 扫描前台进程组（如 `vim`、`ssh`；自动过滤空闲 `zsh` 与后台 MCP/LSP 进程） |
+| 位置索引 | 支持按 `t1` / `tab1` 检索；副标题按需精简展示 `Tab N` 及 `分屏 M/N` |
 
 | 按键 | 行为 |
 |---|---|
@@ -34,7 +34,9 @@ gt <关键词>
 | `⌃` + 回车 | 复制该分屏的完整工作目录 |
 | 选中项按 `⌘C` | Alfred 原生复制路径 |
 
-列表项格式：`W1 · T1 · 窗格2 · ~/path/to/cwd · zsh · ttys001`，各 Tab 当前聚焦的分屏带"当前所在"标记。
+列表项示例：
+- 主标题：`[Agent开发] deepseek-harness — opencode: Optimize Alfred workflow  💬 等待输入`
+- 副标题：`~/Workspaces/github_w/deepseek-harness  ·  Tab 2 · 分屏 1/2  ·  当前`
 
 ### `go` — 打开目录
 
